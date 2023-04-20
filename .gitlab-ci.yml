@@ -1,0 +1,27 @@
+stages:
+  - build
+
+build root image:
+  stage: build
+  tags:
+    - damian12
+  before_script:
+    - sudo docker login -u khoa0797 -p $REGISTRY_PASSWORD 
+    - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )' 
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $VM_IPADDRESS >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - sudo docker pull khoa0797/micronodejs:latest || true
+    - sudo docker build -f code/Dockerfile --cache-from khoa0797/micronodejs:latest -t khoa0797/micronodejs:latest -t khoa0797/micronodejs:$CI_COMMIT_SHA ./code
+    - sudo docker push khoa0797/micronodejs:latest
+    - sudo docker push khoa0797/micronodejs:$CI_COMMIT_SHA
+    - |
+      ssh $SSH_USER@$VM_IPADDRESS  << EOF
+        sed -i "s/micronodejs:.*/micronodejs:$CI_COMMIT_SHA/g" /root/microservices/microservices/api-gateway-deployment.yaml
+        sudo kubectl apply -f /root/microservices/microservices/api-gateway-deployment.yaml
+        exit
+      EOF
