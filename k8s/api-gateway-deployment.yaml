@@ -5,6 +5,7 @@ metadata:
   labels:
     component: api-gateway
 spec:
+  replicas: 2
   revisionHistoryLimit: 1
   selector:
     matchLabels:
